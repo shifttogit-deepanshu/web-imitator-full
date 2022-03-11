@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.125.2/build/three.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.125.2/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.125.2/examples/js/controls/OrbitControls.js"></script>
+	
+	<meta http-equiv="Access-Control-Allow-Origin" content="*">
+	<meta http-equiv="Access-Control-Allow-Methods" content="GET">
+	<!-- <script src="https://cdn.socket.io/4.1.2/socket.io.min.js" integrity="sha384-toS6mmwu70G0fw54EGlWWeA4z3dyJ+dlXBtSURSKN4vyRFOcxd3Bzjj/AoOwY+Rg" crossorigin="anonymous"></script> -->
+    
+  <script src="tween.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <!-- <script src="https://cdn.jsdeliv``1q 1``1  r.net/npm/@mediapipe/drawing_utils/control_utils_3d.js" crossorigin="anonymous"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+
+
+</head>
+<body>
+    <div class="container" style="position: absolute;">
+        <video class="input_video" width="500px" height="500px"></video>
+        <canvas class="output_canvas" width="500px" height="500px"></canvas>
+        <div class="landmark-grid-container"></div>
+      </div>
+    <script src="threeD.js"></script>
+    <script type="module">
+        const videoElement = document.getElementsByClassName('input_video')[0];
+        const canvasElement = document.getElementsByClassName('output_canvas')[0];
+        const canvasCtx = canvasElement.getContext('2d');
+        const landmarkContainer = document.getElementsByClassName('landmark-grid-container')[0];
+        // const grid = new LandmarkGrid(landmarkContainer);
+        
+        function onResultsPose(results) {
+          if (!results.poseLandmarks) {
+            // grid.updateLandmarks([]);
+            return;
+          }
+          // drawPoseLandmarks(results.poseWorldLandmarks)
+          // drawArrowHelpers(results.poseWorldLandmarks)
+          handlePoseLandmarks(results.poseWorldLandmarks)
+          canvasCtx.save();
+          canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        
+        //   canvasCtx.drawImage(results.segmentationMask, 0, 0,
+        //                       canvasElement.width, canvasElement.height);
+        
+        //   // Only overwrite existing pixels.
+        //   canvasCtx.globalCompositeOperation = 'source-in';
+        //   canvasCtx.fillStyle = '#00FF00';
+        //   canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+        
+        //   // Only overwrite missing pixels.
+        //   canvasCtx.globalCompositeOperation = 'destination-atop';
+
+          canvasCtx.drawImage(
+              results.image, 0, 0, canvasElement.width, canvasElement.height);
+        
+          canvasCtx.globalCompositeOperation = 'source-over';
+          drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS,
+                         {color: '#00FF00', lineWidth: 4});
+          drawLandmarks(canvasCtx, results.poseLandmarks,
+                        {color: '#FF0000', lineWidth: 8});
+          canvasCtx.restore();
+        
+        //   grid.updateLandmarks(results.poseWorldLandmarks);
+        }
+
+        function onResultsHands(results) {            
+            canvasCtx.save();
+            // if(results.multiHandWorldLandmarks){
+               
+            // }
+            
+            if(results.multiHandedness.length == 1){
+              handleHandLandmarks(results.multiHandedness[0].label,results.multiHandWorldLandmarks[0])
+              // drawHandLandmarks(results.multiHandedness[0].label,results.multiHandLandmarks[0])
+                // handleHandLandmarks(results.multiHandWorldLandmarks[0])
+              // showHands(results.multiHandedness[0].label,results.multiHandLandmarks[0])
+               
+            }
+            if(results.multiHandedness.length == 2){
+              handleHandLandmarks(results.multiHandedness[0].label,results.multiHandWorldLandmarks[0])
+              handleHandLandmarks(results.multiHandedness[1].label,results.multiHandWorldLandmarks[1])
+              // drawHandLandmarks(results.multiHandedness[0].label,results.multiHandLandmarks[0])
+              // drawHandLandmarks(results.multiHandedness[1].label,results.multiHandLandmarks[1])
+              // showHands(results.multiHandedness[0].label,results.multiHandLandmarks[0])
+              // showHands(results.multiHandedness[1].label,results.multiHandLandmarks[1])
+            }
+            if (results.multiHandLandmarks) {
+                for (const landmarks of results.multiHandLandmarks) {
+                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS,
+                                {color: '#000000', lineWidth: 5});
+                drawLandmarks(canvasCtx, landmarks, {color: '#FF00FF', lineWidth: 2});
+                }
+            }
+            canvasCtx.restore();
+        }
+        
+        const pose = new Pose({locateFile: (file) => {
+          return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+        }});
+        const hands = new Hands({locateFile: (file) => {
+        return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        }});
+        pose.setOptions({
+          modelComplexity: 1,
+          smoothLandmarks: true,
+          enableSegmentation: true,
+          smoothSegmentation: true,
+          minDetectionConfidence: 0.7,
+          minTrackingConfidence: 0.7
+        });
+        hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.8,
+        minTrackingConfidence: 0.8
+        });
+
+        pose.onResults(onResultsPose);
+        hands.onResults(onResultsHands)
+       
+        const camera = new Camera(videoElement, {
+          onFrame: async () => {
+            await pose.send({image: videoElement});
+            await hands.send({image: videoElement});
+          },
+          width: 1280,
+          height: 720
+        });
+        camera.start();
+
+        videoElement.style.display="none"
+        // canvasElement.style.display="none"
+        </script>
+</body>
+</html>
